@@ -12,7 +12,6 @@ import io.vertx.ext.asyncsql.AsyncSQLClient;
 import io.vertx.ext.asyncsql.PostgreSQLClient;
 import io.vertx.ext.sql.SQLConnection;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,27 +39,50 @@ public class PgsqlAccessWrapper {
      */
     protected void executeNoResult(JsonArray params, String sql, Handler<AsyncResult<Void>> resultHandler) {
         client.getConnection(connHandler(resultHandler, connection -> {
-            connection.updateWithParams(sql, params, r -> {
-                if (r.succeeded()) {
-                    resultHandler.handle(Future.succeededFuture());
-                } else {
-                    resultHandler.handle(Future.failedFuture(r.cause()));
-                }
-                connection.close();
-            });
+            if (params == null) {
+                connection.update(sql, r -> {
+                    if (r.succeeded()) {
+                        resultHandler.handle(Future.succeededFuture());
+                    } else {
+                        resultHandler.handle(Future.failedFuture(r.cause()));
+                    }
+                    connection.close();
+                });
+            } else {
+                connection.updateWithParams(sql, params, r -> {
+                    if (r.succeeded()) {
+                        resultHandler.handle(Future.succeededFuture());
+                    } else {
+                        resultHandler.handle(Future.failedFuture(r.cause()));
+                    }
+                    connection.close();
+                });
+            }
         }));
     }
 
     protected <R> void execute(JsonArray params, String sql, R ret, Handler<AsyncResult<R>> resultHandler) {
         client.getConnection(connHandler(resultHandler, connection -> {
-            connection.updateWithParams(sql, params, r -> {
-                if (r.succeeded()) {
-                    resultHandler.handle(Future.succeededFuture(ret));
-                } else {
-                    resultHandler.handle(Future.failedFuture(r.cause()));
-                }
-                connection.close();
-            });
+            if (params == null) {
+                connection.update(sql, r -> {
+                    if (r.succeeded()) {
+                        resultHandler.handle(Future.succeededFuture(ret));
+                    } else {
+                        resultHandler.handle(Future.failedFuture(r.cause()));
+                    }
+                    connection.close();
+                });
+            } else {
+                connection.updateWithParams(sql, params, r -> {
+                    if (r.succeeded()) {
+                        resultHandler.handle(Future.succeededFuture(ret));
+                    } else {
+                        resultHandler.handle(Future.failedFuture(r.cause()));
+                    }
+                    connection.close();
+                });
+            }
+
         }));
     }
 
@@ -68,7 +90,7 @@ public class PgsqlAccessWrapper {
         return getConnection()
                 .compose(connection -> {
                     Future<Optional<JsonObject>> future = Future.future();
-                    if (param == null){
+                    if (param == null) {
                         connection.query(sql, r -> {
                             if (r.succeeded()) {
                                 List<JsonObject> resList = r.result().getRows();
@@ -76,7 +98,9 @@ public class PgsqlAccessWrapper {
                                     future.complete(Optional.empty());
                                 } else {
                                     JsonObject jo = resList.get(0);
-                                    jo = new JsonObject(jo.getString("info"));
+                                    if (jo.getString("info") != null) {
+                                        jo = new JsonObject(jo.getString("info"));
+                                    }
                                     future.complete(Optional.of(jo));
                                 }
                             } else {
@@ -84,7 +108,7 @@ public class PgsqlAccessWrapper {
                             }
                             connection.close();
                         });
-                    }else{
+                    } else {
                         connection.queryWithParams(sql, new JsonArray().add(param), r -> {
                             if (r.succeeded()) {
                                 List<JsonObject> resList = r.result().getRows();
@@ -92,7 +116,9 @@ public class PgsqlAccessWrapper {
                                     future.complete(Optional.empty());
                                 } else {
                                     JsonObject jo = resList.get(0);
-                                    jo = new JsonObject(jo.getString("info"));
+                                    if (jo.getString("info") != null) {
+                                        jo = new JsonObject(jo.getString("info"));
+                                    }
                                     future.complete(Optional.of(jo));
                                 }
                             } else {
@@ -118,10 +144,10 @@ public class PgsqlAccessWrapper {
             Future<Optional<JsonArray>> future = Future.future();
             connection.queryWithParams(sql, params, r -> {
                 if (r.succeeded()) {
-                    List<JsonObject> resList =r.result().getRows();
-                    if (resList ==null || resList.isEmpty()){
+                    List<JsonObject> resList = r.result().getRows();
+                    if (resList == null || resList.isEmpty()) {
                         future.complete(Optional.empty());
-                    }else{
+                    } else {
                         JsonArray ja = new JsonArray();
                         resList.forEach(entity -> {
                             ja.add(new JsonObject(entity.getString("info")));
@@ -143,10 +169,10 @@ public class PgsqlAccessWrapper {
             connection.query(sql, r -> {
 
                 if (r.succeeded()) {
-                    List<JsonObject> resList =r.result().getRows();
-                    if (resList ==null || resList.isEmpty()){
+                    List<JsonObject> resList = r.result().getRows();
+                    if (resList == null || resList.isEmpty()) {
                         future.complete(Optional.empty());
-                    }else{
+                    } else {
                         JsonArray ja = new JsonArray();
                         resList.forEach(entity -> {
                             ja.add(new JsonObject(entity.getString("info")));
