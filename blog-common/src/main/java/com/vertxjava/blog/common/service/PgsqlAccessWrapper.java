@@ -98,7 +98,7 @@ public class PgsqlAccessWrapper {
                                     future.complete(Optional.empty());
                                 } else {
                                     JsonObject jo = resList.get(0);
-                                    if (jo.getString("info") != null) {
+                                    if (jo.containsKey("info")) {
                                         jo = new JsonObject(jo.getString("info"));
                                     }
                                     future.complete(Optional.of(jo));
@@ -116,7 +116,7 @@ public class PgsqlAccessWrapper {
                                     future.complete(Optional.empty());
                                 } else {
                                     JsonObject jo = resList.get(0);
-                                    if (jo.getString("info") != null) {
+                                    if (jo.containsKey("info")) {
                                         jo = new JsonObject(jo.getString("info"));
                                     }
                                     future.complete(Optional.of(jo));
@@ -138,8 +138,7 @@ public class PgsqlAccessWrapper {
         return limit * (page - 1);
     }
 
-    protected Future<Optional<JsonArray>> retrieveByPage(int page, int limit, String sql) {
-        JsonArray params = new JsonArray().add(limit).add(calcPage(page, limit));
+    protected Future<Optional<JsonArray>> retrieveByPage(JsonArray params, String sql) {
         return getConnection().compose(connection -> {
             Future<Optional<JsonArray>> future = Future.future();
             connection.queryWithParams(sql, params, r -> {
@@ -150,7 +149,10 @@ public class PgsqlAccessWrapper {
                     } else {
                         JsonArray ja = new JsonArray();
                         resList.forEach(entity -> {
-                            ja.add(new JsonObject(entity.getString("info")));
+                            if (entity.containsKey("info"))
+                                ja.add(new JsonObject(entity.getString("info")));
+                            else
+                                ja.add(entity);
                         });
                         future.complete(Optional.of(ja));
                     }
@@ -167,7 +169,6 @@ public class PgsqlAccessWrapper {
         return getConnection().compose(connection -> {
             Future<Optional<JsonArray>> future = Future.future();
             connection.query(sql, r -> {
-
                 if (r.succeeded()) {
                     List<JsonObject> resList = r.result().getRows();
                     if (resList == null || resList.isEmpty()) {
@@ -175,7 +176,10 @@ public class PgsqlAccessWrapper {
                     } else {
                         JsonArray ja = new JsonArray();
                         resList.forEach(entity -> {
-                            ja.add(new JsonObject(entity.getString("info")));
+                            if (entity.containsKey("info"))
+                                ja.add(new JsonObject(entity.getString("info")));
+                            else
+                                ja.add(entity);
                         });
                         future.complete(Optional.of(ja));
                     }

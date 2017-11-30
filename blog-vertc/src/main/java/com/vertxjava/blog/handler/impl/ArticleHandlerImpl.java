@@ -66,7 +66,7 @@ public class ArticleHandlerImpl extends PgsqlAccessWrapper implements ArticleHan
     private void listByPage(RoutingContext context){
         int page = Integer.parseInt(context.request().getParam("page"));
         int pageSize = 20;
-        retrieveByPage(page,pageSize,SQL_LIST_BY_PAGE).setHandler(r -> {
+        retrieveByPage(new JsonArray().add(pageSize).add(calcPage(page, pageSize)),SQL_LIST_BY_PAGE).setHandler(r -> {
             if (r.succeeded()){
                 if (r.result().isPresent()){
                     JsonArray result = new JsonArray();
