@@ -16,7 +16,7 @@ public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements Artic
     private Logger logger = LoggerFactory.getLogger(ArticleIndexHandlerImpl.class);
     private static final String SQL_ADD_ARTICLE = "insert into vertc_blog_article (info) values (?)";
     private static final String SQL_LIST_BY_PAGE = "select info from vertc_blog_article order by info->'id' desc limit ? offset ?";
-    private static final String SQL_LIST_BY_PAGE_CATEGORY  = "select info from vertc_blog_article where info->'category' = '\"?\"' order by info->'id' desc limit ? offset ?";
+    private static final String SQL_LIST_BY_PAGE_CATEGORY  = "select info from vertc_blog_article where info->'category' = ? order by info->'id' desc limit ? offset ?";
     private static final String SQL_FIND_BY_ID = "select info from vertc_blog_article where (info->>'id')::bigint = ?";
     private static final String SQL_COUNT = "select count(*) from vertc_blog_article";
     //private static final String SQL_UPDATE_READS = "update vertc_blog_article set info=jsonb_set(info,'{reads}','2',true) where (info->>'id')::bigint = 1511785189743;";
