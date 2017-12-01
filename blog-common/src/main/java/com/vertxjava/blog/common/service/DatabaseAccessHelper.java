@@ -1,8 +1,6 @@
 package com.vertxjava.blog.common.service;
 
-import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -16,28 +14,127 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * mysql access
+ * postgresql access
  *
  * @author jack
  * @create 2017-09-01 14:06
  **/
-public class PgsqlAccessWrapper {
+public class DatabaseAccessHelper {
 
-    protected final AsyncSQLClient client;
-    private Logger logger = LoggerFactory.getLogger(PgsqlAccessWrapper.class);
+    private final AsyncSQLClient client;
+    private Logger logger = LoggerFactory.getLogger(DatabaseAccessHelper.class);
 
-    public PgsqlAccessWrapper(Vertx vertx, JsonObject config) {
+    public DatabaseAccessHelper(Vertx vertx, JsonObject config) {
         this.client = PostgreSQLClient.createShared(vertx, config);
     }
 
-    /**
-     * Suitable for `add`, `exists` operation.
-     *
-     * @param params        query params
-     * @param sql           sql
-     * @param resultHandler async result handler
-     */
-    protected void executeNoResult(JsonArray params, String sql, Handler<AsyncResult<Void>> resultHandler) {
+    protected Future<Void> update(String sql) {
+        return getConnection().compose(connection -> {
+            Future<Void> future = Future.future();
+            connection.update(sql, ar -> {
+                if (ar.succeeded())
+                    future.complete();
+                else
+                    future.fail(ar.cause());
+                connection.close();
+            });
+            return future;
+        });
+    }
+
+    protected Future<Void> update(String sql, JsonArray params) {
+        return getConnection().compose(connection -> {
+            Future<Void> future = Future.future();
+            connection.updateWithParams(sql, params, ar -> {
+                if (ar.succeeded())
+                    future.complete();
+                else
+                    future.fail(ar.cause());
+                connection.close();
+            });
+            return future;
+        });
+    }
+
+    protected Future<Void> execute(String sql) {
+        return getConnection().compose(connection -> {
+            Future<Void> future = Future.future();
+            connection.execute(sql, ar -> {
+                if (ar.succeeded())
+                    future.complete();
+                else
+                    future.fail(ar.cause());
+                connection.close();
+            });
+            return future;
+        });
+    }
+
+    protected Future<Optional<JsonArray>> query(String sql) {
+        return getConnection().compose(connection -> {
+            Future<Optional<JsonArray>> future = Future.future();
+            connection.query(sql, ar -> {
+                List<JsonObject> list = ar.result().getRows();
+                if (list.isEmpty()) {
+                    future.complete(Optional.empty());
+                } else {
+                    JsonArray result = new JsonArray();
+                    list.forEach(jo -> {
+                        if (jo.containsKey("info")) {
+                            result.add(new JsonObject(jo.getString("info")));
+                        } else {
+                            result.add(jo);
+                        }
+                    });
+                    future.complete(Optional.of(result));
+                }
+                connection.close();
+            });
+            return future;
+        });
+    }
+
+    protected Future<Optional<JsonArray>> query(String sql, JsonArray params) {
+        return getConnection().compose(connection -> {
+            Future<Optional<JsonArray>> future = Future.future();
+            connection.queryWithParams(sql, params, ar -> {
+                List<JsonObject> list = ar.result().getRows();
+                if (list.isEmpty()) {
+                    future.complete(Optional.empty());
+                } else {
+                    JsonArray result = new JsonArray();
+                    list.forEach(jo -> {
+                        if (jo.containsKey("info")) {
+                            result.add(new JsonObject(jo.getString("info")));
+                        } else {
+                            result.add(jo);
+                        }
+                    });
+                    future.complete(Optional.of(result));
+                }
+                connection.close();
+            });
+            return future;
+        });
+    }
+
+    protected Future<Void> delete(String sql) {
+        return update(sql);
+    }
+
+    protected Future<Void> delete(String sql, JsonArray params) {
+        return update(sql, params);
+    }
+
+    protected Future<Void> insert(String sql) {
+        return update(sql);
+    }
+
+    protected Future<Void> insert(String sql, JsonArray params) {
+        return update(sql, params);
+    }
+
+    /*protected void executeNoResult(JsonArray params, String sql, Handler<AsyncResult<Void>> resultHandler) {
         client.getConnection(connHandler(resultHandler, connection -> {
             if (params == null) {
                 connection.update(sql, r -> {
@@ -130,7 +227,7 @@ public class PgsqlAccessWrapper {
                     }
                     return future;
                 });
-    }
+    }*/
 
     protected int calcPage(int page, int limit) {
         if (page <= 0)
@@ -138,7 +235,7 @@ public class PgsqlAccessWrapper {
         return limit * (page - 1);
     }
 
-    protected Future<Optional<JsonArray>> retrieveByPage(JsonArray params, String sql) {
+    /*protected Future<Optional<JsonArray>> retrieveByPage(JsonArray params, String sql) {
         return getConnection().compose(connection -> {
             Future<Optional<JsonArray>> future = Future.future();
             connection.queryWithParams(sql, params, r -> {
@@ -204,9 +301,9 @@ public class PgsqlAccessWrapper {
                 connection.close();
             });
         }));
-    }
+    }*/
 
-    protected void removeAll(String sql, Handler<AsyncResult<Void>> resultHandler) {
+   /* protected void removeAll(String sql, Handler<AsyncResult<Void>> resultHandler) {
         client.getConnection(connHandler(resultHandler, connection -> {
             connection.update(sql, r -> {
                 if (r.succeeded()) {
@@ -217,14 +314,14 @@ public class PgsqlAccessWrapper {
                 connection.close();
             });
         }));
-    }
+    }*/
 
-    /**
-     * A helper methods that generates async handler for SQLConnection
+   /* *//**
+     * 异步生成connection
      *
      * @return generated handler
-     */
-    protected <R> Handler<AsyncResult<SQLConnection>> connHandler(Handler<AsyncResult<R>> h1, Handler<SQLConnection> h2) {
+     *//*
+    private <R> Handler<AsyncResult<SQLConnection>> connHandler(Handler<AsyncResult<R>> h1, Handler<SQLConnection> h2) {
         return conn -> {
             if (conn.succeeded()) {
                 final SQLConnection connection = conn.result();
@@ -233,9 +330,14 @@ public class PgsqlAccessWrapper {
                 h1.handle(Future.failedFuture(conn.cause()));
             }
         };
-    }
+    }*/
 
-    protected Future<SQLConnection> getConnection() {
+    /**
+     * 异步获取SQLConnection
+     *
+     * @return SQLConnection
+     */
+    private Future<SQLConnection> getConnection() {
         Future<SQLConnection> future = Future.future();
         client.getConnection(future.completer());
         return future;
