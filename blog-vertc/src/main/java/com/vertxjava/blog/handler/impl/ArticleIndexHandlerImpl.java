@@ -1,6 +1,6 @@
 package com.vertxjava.blog.handler.impl;
 
-import com.vertxjava.blog.common.service.PgsqlAccessWrapper;
+import com.vertxjava.blog.common.service.DatabaseAccessHelper;
 import com.vertxjava.blog.handler.ArticleIndexHandler;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -12,11 +12,11 @@ import io.vertx.ext.web.RoutingContext;
 
 import java.util.Objects;
 
-public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements ArticleIndexHandler {
+public class ArticleIndexHandlerImpl extends DatabaseAccessHelper implements ArticleIndexHandler {
     private Logger logger = LoggerFactory.getLogger(ArticleIndexHandlerImpl.class);
     private static final String SQL_ADD_ARTICLE = "insert into vertc_blog_article (info) values (?)";
     private static final String SQL_LIST_BY_PAGE = "select info from vertc_blog_article order by info->'id' desc limit ? offset ?";
-    private static final String SQL_LIST_BY_PAGE_CATEGORY  = "select info from vertc_blog_article where info->'category' = ? order by info->'id' desc limit ? offset ?";
+    private static final String SQL_LIST_BY_PAGE_CATEGORY  = "select info from vertc_blog_article where info->'category' = '$?' order by info->'id' desc limit ? offset ?";
     private static final String SQL_FIND_BY_ID = "select info from vertc_blog_article where (info->>'id')::bigint = ?";
     private static final String SQL_COUNT = "select count(*) from vertc_blog_article ";
     //private static final String SQL_UPDATE_READS = "update vertc_blog_article set info=jsonb_set(info,'{reads}','2',true) where (info->>'id')::bigint = 1511785189743;";
@@ -60,7 +60,7 @@ public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements Artic
         }else{
             params.add(pageSize).add(calcPage(page, pageSize));
         }
-        retrieveByPage(params,sql).setHandler(r -> {
+        query(sql,params).setHandler(r -> {
             if (r.succeeded()){
                 if (r.result().isPresent()){
                     context.response().end(r.result().get().encodePrettily());
@@ -75,10 +75,10 @@ public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements Artic
 
     private void detail(RoutingContext context){
         long id = Long.parseLong(context.request().getParam("id"));
-        retrieveOne(id,SQL_FIND_BY_ID).setHandler(r -> {
+        query(SQL_FIND_BY_ID,new JsonArray().add(id)).setHandler(r -> {
             if (r.succeeded()){
                 if (r.result().isPresent()){
-                    context.response().end(r.result().get().encodePrettily());
+                    context.response().end(r.result().get().getJsonObject(0).encodePrettily());
                 }else{
                     context.response().end(new JsonObject().encodePrettily());
                 }
@@ -89,10 +89,10 @@ public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements Artic
     }
 
     private void count(RoutingContext context){
-        retrieveOne(null,SQL_COUNT).setHandler(r -> {
+        query(SQL_COUNT).setHandler(r -> {
             if (r.succeeded()){
                 if (r.result().isPresent()){
-                    context.response().end(r.result().get().encodePrettily());
+                    context.response().end(r.result().get().getJsonObject(0).encodePrettily());
                 }else{
                     context.response().end(new JsonObject().encodePrettily());
                 }
@@ -106,36 +106,28 @@ public class ArticleIndexHandlerImpl extends PgsqlAccessWrapper implements Artic
     private void read(RoutingContext context){
         // 先查询当前阅读数
         final long id = Long.parseLong(context.request().getParam("id"));
-        retrieveOne(id,SQL_CURRENT_READS).compose(json_reads -> {
-            Future<Void> future = Future.future();
+        query(SQL_CURRENT_READS,new JsonArray().add(id)).compose(r -> {
             JsonObject data = new JsonObject();
-            int reads = 0;
-            if (json_reads.isPresent()){
-                reads =json_reads.get().getInteger("reads")+1;
-                data = json_reads.get();
-                data.put("reads",reads);
+            if (r.isPresent()){
+                data = r.get().getJsonObject(0);
+                data.put("reads",data.getInteger("reads")+1);
+                context.response().end();
             }
-            executeNoResult(new JsonArray().add(data.encode()).add(id),SQL_UPDATE_READS,r -> {
-                if (r.succeeded())
-                    future.complete();
-                else
-                    future.fail(r.cause());
-            });
-            return future;
+            return update(SQL_UPDATE_READS,new JsonArray().add(data.encode()).add(id));
         });
     }
 
     private void categoryCount(RoutingContext context){
-        retrieveAll(SQL_GROUP_BY_CATEGORY).setHandler(r -> {
-           if (r.succeeded()){
-               if (r.result().isPresent()){
-                   context.response().end(r.result().get().encodePrettily());
-               }else{
-                   context.response().end(new JsonArray().encodePrettily());
-               }
-           }else{
-               context.fail(500);
-           }
+        query(SQL_GROUP_BY_CATEGORY).setHandler(r -> {
+            if (r.succeeded()){
+                if (r.result().isPresent()){
+                    context.response().end(r.result().get().encodePrettily());
+                }else{
+                    context.response().end(new JsonArray().encodePrettily());
+                }
+            }else{
+                context.fail(500);
+            }
         });
     }
 

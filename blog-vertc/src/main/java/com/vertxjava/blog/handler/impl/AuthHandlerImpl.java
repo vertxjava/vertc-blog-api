@@ -1,6 +1,6 @@
 package com.vertxjava.blog.handler.impl;
 
-import com.vertxjava.blog.common.service.PgsqlAccessWrapper;
+import com.vertxjava.blog.common.service.DatabaseAccessHelper;
 import com.vertxjava.blog.handler.AuthHandler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -12,7 +12,7 @@ import io.vertx.ext.web.RoutingContext;
 
 import java.util.Optional;
 
-public class AuthHandlerImpl extends PgsqlAccessWrapper implements AuthHandler {
+public class AuthHandlerImpl extends DatabaseAccessHelper implements AuthHandler {
     private static final String GET_USER = "select info from vertc_blog_user";
     private Logger logger = LoggerFactory.getLogger(AuthHandlerImpl.class);
     private JWTAuth jwtAuth;
@@ -25,11 +25,10 @@ public class AuthHandlerImpl extends PgsqlAccessWrapper implements AuthHandler {
     @Override
     public void handle(RoutingContext context) {
         JsonObject params = context.getBodyAsJson();
-        retrieveOne(null, GET_USER).setHandler(r -> {
+        query(GET_USER).setHandler(r -> {
             if (r.succeeded()) {
-                Optional<JsonObject> tmp = r.result();
-                if (tmp.isPresent()) {
-                    JsonObject data = tmp.get();
+                if (r.result().isPresent()) {
+                    JsonObject data = r.result().get().getJsonObject(0);
                     if (data.equals(params)) {
                         String token = jwtAuth.generateToken(new JsonObject()
                                 .put("sub", "paulo"), new JWTOptions()

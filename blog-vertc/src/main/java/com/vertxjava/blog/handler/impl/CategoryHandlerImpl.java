@@ -1,6 +1,6 @@
 package com.vertxjava.blog.handler.impl;
 
-import com.vertxjava.blog.common.service.PgsqlAccessWrapper;
+import com.vertxjava.blog.common.service.DatabaseAccessHelper;
 import com.vertxjava.blog.handler.CategoryHandler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
@@ -9,9 +9,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.ext.web.RoutingContext;
 
-import java.util.List;
-
-public class CategoryHandlerImpl extends PgsqlAccessWrapper implements CategoryHandler {
+public class CategoryHandlerImpl extends DatabaseAccessHelper implements CategoryHandler {
 
     private static final String ALL = "select info from vertc_blog_category";
     private Logger logger = LoggerFactory.getLogger(CategoryHandlerImpl.class);
@@ -37,7 +35,7 @@ public class CategoryHandlerImpl extends PgsqlAccessWrapper implements CategoryH
     }
 
     private void all(RoutingContext context) {
-        retrieveAll(ALL).setHandler(r -> {
+        query(ALL).setHandler(r ->{
             if (r.succeeded()) {
                 if (r.result().isPresent()){
                     context.response().end(r.result().get().encodePrettily());
