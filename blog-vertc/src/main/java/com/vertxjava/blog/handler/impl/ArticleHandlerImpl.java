@@ -14,9 +14,12 @@ import java.util.Date;
 
 public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleHandler {
     private static final String SQL_ADD_ARTICLE = "insert into vertc_blog_article (info) values (?)";
-    private static final String SQL_LIST_BY_PAGE = "select info from vertc_blog_article limit ? offset ?";
+    private static final String SQL_LIST_BY_PAGE = "select info from vertc_blog_article order by info->'id' desc limit ? offset ?";
     private static final String SQL_FIND_BY_ID = "select info from vertc_blog_article where (info->>'id')::bigint = ?";
     private static final String SQL_UPDATE_ARTICLE = "update vertc_blog_article set info = ? where (info->>'id')::bigint = ?";
+    private static final String SQL_DELETE = "delete from vertc_blog_article where (info::jsonb->>'id')::bigint = ?";
+    private static final String SQL_SWITCH_SHOW_STATUS = "update vertc_blog_article set info = info || ? where (info->>'id')::bigint = ?";
+    private static final String SQL_COUNT = "select count(*) from vertc_blog_article";
     private Logger logger = LoggerFactory.getLogger(ArticleHandlerImpl.class);
 
     public ArticleHandlerImpl(Vertx vertx, JsonObject config) {
@@ -45,6 +48,15 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
             case "update":
                 update(context);
                 break;
+            case "delete":
+                delete(context);
+                break;
+            case "switchShowStatus":
+                switchShowStatus(context);
+                break;
+            case "count":
+                count(context);
+                break;
             default:
                 context.fail(404);
 
@@ -56,6 +68,7 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
         JsonObject params = context.getBodyAsJson();
         params.put("id", new Date().getTime());
         params.put("reads", 0);
+        params.put("showStatus", false);
         params.put("createDate", new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()));
         insert(SQL_ADD_ARTICLE, new JsonArray().add(params.encode())).setHandler(r -> {
             if (r.succeeded()) {
@@ -68,7 +81,7 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
 
     private void listByPage(RoutingContext context) {
         int page = Integer.parseInt(context.request().getParam("page"));
-        int pageSize = 20;
+        int pageSize = Integer.parseInt(context.request().getParam("pageSize"));
         query(SQL_LIST_BY_PAGE, new JsonArray().add(pageSize).add(calcPage(page, pageSize))).setHandler(r -> {
             if (r.succeeded()) {
                 if (r.result().isPresent()) {
@@ -87,7 +100,7 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
         query(SQL_FIND_BY_ID, new JsonArray().add(id)).setHandler(r -> {
             if (r.succeeded()) {
                 if (r.result().isPresent()) {
-                    context.response().end(r.result().get().encodePrettily());
+                    context.response().end(r.result().get().getJsonObject(0).encodePrettily());
                 } else {
                     context.response().end(new JsonObject().encodePrettily());
                 }
@@ -99,6 +112,7 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
 
     private void update(RoutingContext context) {
         JsonObject params = context.getBodyAsJson();
+        params.put("showStatus", false);
         update(SQL_UPDATE_ARTICLE, new JsonArray().add(params.encode()).add(params.getLong("id"))).setHandler(r -> {
             if (r.succeeded()) {
                 context.response().end();
@@ -107,5 +121,44 @@ public class ArticleHandlerImpl extends DatabaseAccessHelper implements ArticleH
             }
         });
     }
+
+    private void delete(RoutingContext context) {
+        long id = Long.parseLong(context.request().getParam("id"));
+        delete(SQL_DELETE, new JsonArray().add(id)).setHandler(r -> {
+            if (r.succeeded()) {
+                context.response().end();
+            } else {
+                context.fail(500);
+            }
+        });
+    }
+
+    private void switchShowStatus(RoutingContext context) {
+        long id = Long.parseLong(context.request().getParam("id"));
+        boolean show = Boolean.parseBoolean(context.request().getParam("showStatus"));
+        update(SQL_SWITCH_SHOW_STATUS, new JsonArray().add(new JsonObject().put("showStatus",!show).encode()).add(id)).setHandler(r -> {
+            if (r.succeeded()) {
+                context.response().end();
+            } else {
+                context.fail(500);
+            }
+        });
+    }
+    private void count(RoutingContext context) {
+        query(SQL_COUNT).setHandler(r -> {
+            if (r.succeeded()) {
+                if (r.result().isPresent()) {
+                    context.response().end(r.result().get().getJsonObject(0).encodePrettily());
+                } else {
+                    context.response().end(new JsonObject().encodePrettily());
+                }
+            } else {
+                logger.info(r.cause().getLocalizedMessage());
+                context.fail(500);
+            }
+        });
+    }
+
+
 
 }
