@@ -2,11 +2,11 @@
   "http.address":"localhost",
   "http.port":8001,
   "pgsql.conn.conf":{
-    "host" : "47.94.8.155",
+    "host" : "localhost",
     "port" : 5432,
     "maxPoolSize" : 30,
     "username" : "postgres",
-    "password" : "WwW2516424",
+    "password" : "xxx",
     "database" : "blog",
     "charset" : "UTF-8",
     "queryTimeout" : 10000
